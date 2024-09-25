@@ -7,11 +7,13 @@
 </head>
 <body>
     <h2>Store Data Checker</h2>
-    <input type="file" id="fileInput" accept=".csv">
+    <input type="file" id="fileInput" accept=".xlsx, .xls">
     <button onclick="processFile()">Check Missing Data</button>
 
     <h3>Results:</h3>
     <ul id="result"></ul>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
         function processFile() {
@@ -24,10 +26,14 @@
 
             const reader = new FileReader();
             reader.onload = function (e) {
-                const csvData = e.target.result;
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const csvData = XLSX.utils.sheet_to_csv(worksheet);
                 parseCSV(csvData);
             };
-            reader.readAsText(file);
+            reader.readAsArrayBuffer(file);
         }
 
         function parseCSV(data) {
@@ -38,68 +44,73 @@
             const header = rows[0]; // First row is the header
             console.log(header); // Debugging step: Log headers to the console
 
+            // Display the headers in the result section for easier checking
+            const headerDisplay = document.createElement('li');
+            headerDisplay.innerHTML = `CSV Headers: ${header.join(', ')}`;
+            resultElement.appendChild(headerDisplay);
+
             const storeIndex = header.indexOf('Store Name'); // Adjust if header differs
             const dateIndex = header.indexOf('Day');         // Adjust if header differs
             const transIndex = header.indexOf('Trans');      // Adjust if header differs
             const salesIndex = header.indexOf('Sales');      // Adjust if header differs
 
             if (storeIndex === -1 || dateIndex === -1 || transIndex === -1 || salesIndex === -1) {
-                alert('Invalid CSV format');
+                alert('Invalid file format');
                 return;
             }
 
-            const missingStores = {};
-            const dateRange = generateDateRange(new Date('2024-05-01'), new Date('2024-09-13'));
+            const storeData = {}; // Store data by store name
 
-            rows.slice(1).forEach(row => {
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
                 const store = row[storeIndex];
                 const date = row[dateIndex];
                 const trans = row[transIndex];
                 const sales = row[salesIndex];
 
-                if (!store || !date || !trans || !sales || trans.trim() === '' || sales.trim() === '' || parseFloat(trans) === 0 || parseFloat(sales) === 0) {
-                    if (!missingStores[store]) missingStores[store] = [];
-                    missingStores[store].push({ date, trans, sales });
-                }
-            });
-
-            for (const store in missingStores) {
-                const missingEntries = missingStores[store];
-                const datesWithNoData = dateRange.filter(date => !missingEntries.find(entry => entry.date === date));
-
-                if (datesWithNoData.length > 0) {
-                    const storeItem = document.createElement('li');
-                    storeItem.innerHTML = `<strong>${store}</strong>: Missing data for dates ${datesWithNoData.join(', ')}`;
-                    resultElement.appendChild(storeItem);
+                if (!storeData[store]) {
+                    storeData[store] = { missingDates: [], missingTrans: false, missingSales: false };
                 }
 
-                missingEntries.forEach(entry => {
-                    if (entry.trans.trim() === '' || entry.sales.trim() === '' || parseFloat(entry.trans) === 0 || parseFloat(entry.sales) === 0) {
-                        const storeItem = document.createElement('li');
-                        storeItem.innerHTML = `<strong>${store}</strong>: Missing transaction/sales values on ${entry.date}`;
-                        resultElement.appendChild(storeItem);
-                    }
-                });
-            }
-        }
-
-        function generateDateRange(startDate, endDate) {
-            const dateRange = [];
-            let currentDate = startDate;
-
-            while (currentDate <= endDate) {
-                dateRange.push(formatDate(currentDate));
-                currentDate.setDate(currentDate.getDate() + 1);
+                if (!date || !trans || !sales) {
+                    if (!date) storeData[store].missingDates.push(date);
+                    if (!trans) storeData[store].missingTrans = true;
+                    if (!sales) storeData[store].missingSales = true;
+                }
             }
 
-            return dateRange;
+            displayMissingData(storeData);
         }
 
-        function formatDate(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${day}-${month}-${year}`;
+        function displayMissingData(storeData) {
+            const resultElement = document.getElementById('result');
+            resultElement.innerHTML = '';
+
+            for (const store in storeData) {
+                const { missingDates, missingTrans, missingSales } = storeData[store];
+                
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `<strong>${store}</strong> - `;
+                
+                let missingInfo = [];
+                if (missingDates.length > 0) {
+                    missingInfo.push(`Missing Dates: ${missingDates.join(', ')}`);
+                }
+                if (missingTrans) {
+                    missingInfo.push(`Missing Transactions`);
+                }
+                if (missingSales) {
+                    missingInfo.push(`Missing Sales`);
+                }
+
+                if (missingInfo.length > 0) {
+                    listItem.innerHTML += missingInfo.join(' | ');
+                } else {
+                    listItem.innerHTML += 'No missing data';
+                }
+
+                resultElement.appendChild(listItem);
+            }
         }
     </script>
 </body>
