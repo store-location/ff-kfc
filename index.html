@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Data Checker</title>
+</head>
+<body>
+    <h2>Store Data Checker</h2>
+    <input type="file" id="fileInput" accept=".csv">
+    <button onclick="processFile()">Check Missing Data</button>
+
+    <h3>Results:</h3>
+    <ul id="result"></ul>
+
+    <script>
+        function processFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please upload a file first.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const csvData = e.target.result;
+                parseCSV(csvData);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(data) {
+            const rows = data.split('\n').map(row => row.split(','));
+            const resultElement = document.getElementById('result');
+            resultElement.innerHTML = '';
+
+            const header = rows[0];
+            const storeIndex = header.indexOf('Store Name');
+            const dateIndex = header.indexOf('Day');
+            const transIndex = header.indexOf('Trans');
+            const salesIndex = header.indexOf('Sales');
+
+            if (storeIndex === -1 || dateIndex === -1 || transIndex === -1 || salesIndex === -1) {
+                alert('Invalid CSV format');
+                return;
+            }
+
+            const missingStores = {};
+            const dateRange = generateDateRange(new Date('2024-05-01'), new Date('2024-09-13'));
+
+            rows.slice(1).forEach(row => {
+                const store = row[storeIndex];
+                const date = row[dateIndex];
+                const trans = row[transIndex];
+                const sales = row[salesIndex];
+
+                if (!store || !date || !trans || !sales || trans.trim() === '' || sales.trim() === '' || parseFloat(trans) === 0 || parseFloat(sales) === 0) {
+                    if (!missingStores[store]) missingStores[store] = [];
+                    missingStores[store].push({ date, trans, sales });
+                }
+            });
+
+            for (const store in missingStores) {
+                const missingEntries = missingStores[store];
+                const datesWithNoData = dateRange.filter(date => !missingEntries.find(entry => entry.date === date));
+
+                if (datesWithNoData.length > 0) {
+                    const storeItem = document.createElement('li');
+                    storeItem.innerHTML = `<strong>${store}</strong>: Missing data for dates ${datesWithNoData.join(', ')}`;
+                    resultElement.appendChild(storeItem);
+                }
+
+                missingEntries.forEach(entry => {
+                    if (entry.trans.trim() === '' || entry.sales.trim() === '' || parseFloat(entry.trans) === 0 || parseFloat(entry.sales) === 0) {
+                        const storeItem = document.createElement('li');
+                        storeItem.innerHTML = `<strong>${store}</strong>: Missing transaction/sales values on ${entry.date}`;
+                        resultElement.appendChild(storeItem);
+                    }
+                });
+            }
+        }
+
+        function generateDateRange(startDate, endDate) {
+            const dateRange = [];
+            let currentDate = startDate;
+
+            while (currentDate <= endDate) {
+                dateRange.push(formatDate(currentDate));
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            return dateRange;
+        }
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${day}-${month}-${year}`;
+        }
+    </script>
+</body>
+</html>
