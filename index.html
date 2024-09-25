@@ -35,11 +35,13 @@
             const resultElement = document.getElementById('result');
             resultElement.innerHTML = '';
 
-            const header = rows[0];
-            const storeIndex = header.indexOf('Store Name');
-            const dateIndex = header.indexOf('Day');
-            const transIndex = header.indexOf('Trans');
-            const salesIndex = header.indexOf('Sales');
+            const header = rows[0]; // First row is the header
+            console.log(header); // Debugging step: Log headers to the console
+
+            const storeIndex = header.indexOf('Store Name'); // Adjust if header differs
+            const dateIndex = header.indexOf('Day');         // Adjust if header differs
+            const transIndex = header.indexOf('Trans');      // Adjust if header differs
+            const salesIndex = header.indexOf('Sales');      // Adjust if header differs
 
             if (storeIndex === -1 || dateIndex === -1 || transIndex === -1 || salesIndex === -1) {
                 alert('Invalid CSV format');
